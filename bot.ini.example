@@ -8,3 +8,11 @@ user = postgres
 password = postgres
 database = postgres
 host = 127.0.0.1
+
+[redis]
+host = 127.0.0.1
+port = 6379
+db = 0
+
+[api]
+proxy = http://127.0.0.1:8080
