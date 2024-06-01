@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+from requests import Response
 from .torrent import Torrent
 from .enums import Url, State
 
@@ -83,3 +84,33 @@ class Parser(object):
                 )
             )
         return result
+
+    @staticmethod
+    def parse_profile_info(response: Response):
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        user_info = {}
+
+        # Извлечение роли
+        role = soup.find('th', text='Роль:').find_next_sibling('td').text.strip()
+        user_info['Роль'] = role
+
+        # Извлечение стажа
+        experience = soup.find('th', text='Стаж:').find_next_sibling('td').text.strip()
+        user_info['Стаж'] = experience
+
+        # Извлечение даты регистрации
+        registration_date = soup.find('th', text='Зарегистрирован:').find_next_sibling('td').text.strip()
+        user_info['Зарегистрирован'] = registration_date
+
+        # Извлечение статистики отданного
+        traffic_stats = soup.find('th', text='Статистика отданного:').find_next_sibling('td')
+        stats = {
+            'Сегодня': traffic_stats.find('td', {'id': 'uploaded_day'}).text.strip(),
+            'Вчера': traffic_stats.find('td', {'id': 'up_yesterday'}).text.strip(),
+            'Всего': traffic_stats.find('td', {'id': 'uploaded_total'}).text.strip(),
+            'На редких': traffic_stats.find('td', {'id': 'up_rare_total'}).text.strip()
+        }
+        user_info['Статистика отданного'] = stats
+
+        return user_info
