@@ -1,4 +1,4 @@
-from .utils import extract_user_info, get_captcha, get_profile_url, is_autorized, search_captcha
+from .utils import get_captcha, get_profile_url, is_autorized, search_captcha
 from .enums import Url
 from .exceptions import (
     AuthorizationException,
@@ -76,8 +76,3 @@ class PageProvider:
             raise ServerException(f"Ошибка загрузки торрент-файла: {response.status_code}")
 
         return response.content
-
-    def status(self):
-        response = self.session.get(self.profile_url, headers=self.headers)
-        user_info = extract_user_info(response)
-        return user_info
