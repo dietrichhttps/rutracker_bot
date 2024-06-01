@@ -59,8 +59,9 @@ class RutrackerApi(object):
 
     def status(self):
         """Returns information about the user"""
-
-        return self.page_provider.status()
+        response = self.session.get(url=self.page_provider.profile_url,
+                                    headers=self.page_provider.headers)
+        return self.parser.parse_profile_info(response)
 
     def download(self, topic_id: Union[str, int]) -> bytes:
         """Download a .torrent file. Returns bytes"""
