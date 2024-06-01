@@ -19,10 +19,13 @@ class RutrackerApi(object):
         self.page_provider = PageProvider(self.session)
         self.api = ApiProvider(self.session)
 
-    def login(self, username: str, password: str, proxy: str = None) -> None:
+    def login(self, username: str, password: str, captcha: str | None = None) -> None:
         """Login Rutracker.org"""
 
-        return self.page_provider.login(username, password, proxy)
+        return self.page_provider.login(username, password, captcha)
+
+    def search_captcha(self):
+        return self.page_provider.search_captcha()
 
     def search(
         self,
@@ -53,6 +56,11 @@ class RutrackerApi(object):
         for torrent in results["result"]:
             torrent.hash = hashes[str(torrent.topic_id)]
         return results
+
+    def status(self):
+        """Returns information about the user"""
+
+        return self.page_provider.status()
 
     def download(self, topic_id: Union[str, int]) -> bytes:
         """Download a .torrent file. Returns bytes"""
