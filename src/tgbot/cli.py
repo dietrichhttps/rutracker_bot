@@ -1,5 +1,5 @@
 import asyncio
-from rutracker_api.main import RutrackerApi
+from tgbot.keyboards.keyboards import set_main_menu
 from utils.general_logging import get_logger, setup_logger
 
 from aiogram import Bot, Dispatcher
@@ -9,6 +9,7 @@ from aiogram import Bot, Dispatcher
 from src.tgbot.config import load_config
 # from handlers.admin import register_admin
 from src.tgbot.handlers.user import user_router
+from src.tgbot.handlers.other import other_router
 
 setup_logger()
 logger = get_logger(__name__)
@@ -37,10 +38,10 @@ async def main():
     bot = Bot(token=config.tg_bot.token)
     dp = Dispatcher(bot=bot)
     dp.include_router(user_router)
-    # dp.middleware.setup(DbMiddleware(pool))
-    # dp.middleware.setup(RoleMiddleware(config.tg_bot.admin_id))
-    # dp.filters_factory.bind(RoleFilter)
-    # dp.filters_factory.bind(AdminFilter)
+    dp.include_router(other_router)
+
+    # Настраиваем главное меню бота
+    await set_main_menu(bot)
 
     # start
     try:
