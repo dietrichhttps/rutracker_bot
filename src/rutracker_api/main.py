@@ -30,8 +30,8 @@ class RutrackerApi(object):
     def search(
         self,
         query: str,
-        sort: Union[Sort, str] = "desc",
-        order: Union[Order, str] = "seeds",
+        sort: Union[Sort, str],
+        order: Union[Order, str],
         page: int = 1,
         get_hash: bool = False,
     ) -> dict:
