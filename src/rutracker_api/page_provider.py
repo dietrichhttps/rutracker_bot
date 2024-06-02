@@ -21,7 +21,8 @@ class PageProvider:
         self.profile_url = None
 
     def search_captcha(self):
-        captcha_img_url = search_captcha(self.session.get(Url.LOGIN_URL.value, headers=self.headers))
+        captcha_img_url = search_captcha(self.session.get(Url.LOGIN_URL.value,
+                                                          headers=self.headers))
         if captcha_img_url:
             return get_captcha(self.session, captcha_img_url)
 
@@ -53,8 +54,8 @@ class PageProvider:
 
         params = {
             'nm': query,
-            's': sort,
-            'o': order,
+            's': order,
+            'o': sort,
             'start': (page - 1) * 50
         }
 
