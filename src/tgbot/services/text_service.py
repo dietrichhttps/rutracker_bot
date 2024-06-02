@@ -1,11 +1,18 @@
+import datetime
+import re
+
+from tgbot.lexicon.lexicon import LEXICON_SETTINGS
+
+
 def get_torrent_info_text(torrent_info: dict) -> str:
     text = (
-        f"Название: {torrent_info['title'][:20]}"
+        f"Название: {torrent_info['title'][:50]}\n"
         f"Автор: {torrent_info['author']}\n"
         f"Категория: {torrent_info['category']}\n"
         f"Сиды: {torrent_info['seeds']}\n"
         f"Личи: {torrent_info['leeches']}\n"
-        f"Скачиваний: {torrent_info['downloads']}"
+        f"Скачиваний: {torrent_info['downloads']}\n"
+        f"Добавлен: {format_timestamp(torrent_info['registered'])}"
     )
     return text
 
@@ -27,3 +34,44 @@ def get_user_info_text(user_info: dict | None = None) -> str:
     else:
         text = 'Авторизован: нет\n\n/login'
     return text
+
+
+def get_settings_text(data: dict[str, str]) -> str:
+    display_mode = LEXICON_SETTINGS[data['display_mode']]
+    sort = LEXICON_SETTINGS[data['sort']]
+    order = LEXICON_SETTINGS[data['order']]
+    text = (
+        'Текущие настройки:\n\n'
+        f"Способ отображения торрентов: {display_mode}\n"
+        f"Способ сортировки: {sort}\n"
+        f"Порядок сортировки: {order}"
+    )
+    return text
+
+
+def find_snippet_from_search_term(title: str, search_term: str, max_length: int) -> str:
+    # Преобразуем все в нижний регистр для нечувствительного к регистру поиска
+    title_lower = title.lower()
+    search_term_lower = search_term.lower()
+
+    # Ищем все слова в названии
+    words = re.findall(r'\b\w+\b', title_lower)
+
+    # Проходим по словам и ищем наиболее подходящее слово для поиска
+    for word in words:
+        if search_term_lower in word:
+            # Если нашли слово, то определяем его начальную позицию в оригинальном названии
+            start_index = title_lower.find(word)
+            end_index = start_index + max_length
+            if end_index > len(title):
+                end_index = len(title)
+            return title[start_index:end_index]
+
+    # Если ничего не нашли, возвращаем первые max_length символов
+    return title[:max_length]
+
+
+def format_timestamp(timestamp: int) -> str:
+    """Преобразует Unix timestamp в читаемый формат даты и времени"""
+    date_time = datetime.datetime.fromtimestamp(timestamp)
+    return date_time.strftime('%Y-%m-%d %H:%M:%S')
