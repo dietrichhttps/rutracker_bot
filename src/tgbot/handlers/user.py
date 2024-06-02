@@ -238,9 +238,9 @@ async def process_torrent_request(message: Message, state: FSMContext):
     await state.update_data(torrents_info=torrents_info, current_page=1)
     torrents = torrents_info.get('result')
     if torrents_info:
-        total_pages = torrents_info.get('total_pages')
-        text = get_torrent_info_text(torrents[0])
         if settings.display_mode == 'card':
+            total_pages = len(torrents)
+            text = get_torrent_info_text(torrents[0])
             await message.answer(
                 text=text,
                 reply_markup=keyboards.create_torrents_card_kb(
@@ -250,6 +250,7 @@ async def process_torrent_request(message: Message, state: FSMContext):
                 )
             )
         else:
+            total_pages = torrents_info.get('total_pages')
             await message.answer(
                 text='Результаты поиска',
                 reply_markup=keyboards.create_torrents_list_kb(
@@ -268,7 +269,7 @@ async def process_forward_press(callback: CallbackQuery, state: FSMContext):
 
     torrents_info = state_data.get('torrents_info')
     torrents = torrents_info.get('result')
-    total_pages = torrents_info.get('total_pages')
+    total_pages = len(torrents)
 
     prev_page = state_data.get('current_page')
     if prev_page >= 0 and prev_page < total_pages:
@@ -276,7 +277,7 @@ async def process_forward_press(callback: CallbackQuery, state: FSMContext):
         await state.update_data(current_page=current_page)
         await callback.message.edit_text(
             text=get_torrent_info_text(torrents[current_page - 1]),
-            reply_markup=keyboards.create_torrents_card(
+            reply_markup=keyboards.create_torrents_card_kb(
                 'backward',
                 f'{current_page}/{total_pages}',
                 'forward'
@@ -301,7 +302,7 @@ async def process_backward_press(callback: CallbackQuery, state: FSMContext):
         await state.update_data(current_page=current_page)
         await callback.message.edit_text(
             text=get_torrent_info_text(torrents[current_page - 1]),
-            reply_markup=keyboards.create_torrents_card(
+            reply_markup=keyboards.create_torrents_card_kb(
                 'backward',
                 f'{current_page}/{total_pages}',
                 'forward'
