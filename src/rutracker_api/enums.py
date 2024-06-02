@@ -42,7 +42,7 @@ class State(Enum):
                 return state
 
 
-class Order(Enum):
+class Sort(Enum):
     REGISTERED = "1"
     TITLE = "2"
     DOWNLOADS = "4"
@@ -52,6 +52,6 @@ class Order(Enum):
     LEECHES = "11"
 
 
-class Sort(Enum):
+class Order(Enum):
     ASC = "1"
     DESC = "2"
