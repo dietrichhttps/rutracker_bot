@@ -17,13 +17,13 @@ LEXICON_COMMANDS: dict[str, str] = {
     '/help': 'Справка'
 }
 
-LEXICON_SETTINGS = {
-    'list': 'список',
-    'card': 'карточки',
-    'seeds': 'по сидам',
-    'leeches': 'по личерам',
-    'downloads': 'по скачиваниям',
-    'register': 'по дате добавления',
-    'desc': 'по убыванию',
-    'asc': 'по возрастанию'
+LEXICON_SEARCH_SETTINGS = {
+    'list': 'Cписок',
+    'card': 'Карточки',
+    'seeds': 'По сидам',
+    'leeches': 'По личерам',
+    'downloads': 'По скачиваниям',
+    'registered': 'По дате добавления',
+    'desc': 'По убыванию',
+    'asc': 'По возрастанию'
 }
