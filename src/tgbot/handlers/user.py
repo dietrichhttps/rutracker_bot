@@ -143,7 +143,7 @@ async def handle_submit_button(callback: CallbackQuery, state: FSMContext):
 @user_router.message(StateFilter(TorrentFSM.send_torrent_name))
 async def handle_torrent_search_request(message: Message, state: FSMContext):
     query = message.text
-    search_results_info = update_search_request(
+    search_results_info = await update_search_request(
         query, search_settings, api
     )
     torrents = search_results_info['result']
