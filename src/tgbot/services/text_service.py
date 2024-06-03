@@ -1,7 +1,14 @@
 import datetime
 import re
 
-from tgbot.lexicon.lexicon import LEXICON_SETTINGS
+
+def generate_search_results_summary(search_results_info: dict) -> str:
+    text = (
+        f"Всего найдено: {search_results_info['count']}\n"
+        f"Всего страниц: {search_results_info['total_pages']}\n"
+        f'Торрентов в странице: {len(search_results_info['result'])}'
+    )
+    return text
 
 
 def get_torrent_info_text(torrent_info: dict) -> str:
@@ -33,19 +40,6 @@ def get_user_info_text(user_info: dict | None = None) -> str:
         )
     else:
         text = 'Авторизован: нет\n\n/login'
-    return text
-
-
-def get_settings_text(data: dict[str, str]) -> str:
-    display_mode = LEXICON_SETTINGS[data['display_mode']]
-    sort = LEXICON_SETTINGS[data['sort']]
-    order = LEXICON_SETTINGS[data['order']]
-    text = (
-        'Текущие настройки:\n\n'
-        f"Способ отображения торрентов: {display_mode}\n"
-        f"Способ сортировки: {sort}\n"
-        f"Порядок сортировки: {order}"
-    )
     return text
 
 
