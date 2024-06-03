@@ -10,14 +10,14 @@ class LoginFSM(StatesGroup):
 
 class TorrentFSM(StatesGroup):
     send_torrent_name = State()
+    search_settings_page = State()
+    watch_results_card_page = State()
+    watch_results_list_page = State()
+    display_mode_page = State()
+    order_page = State()
+    sort_page = State()
+    category_page = State()
     choose_torrent = State()
-
-
-class SettingsFSM(StatesGroup):
-    main = State()
-    display_mode = State()
-    order = State()
-    sort = State()
 
 
 class StatusFSM(StatesGroup):
