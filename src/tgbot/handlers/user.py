@@ -8,23 +8,32 @@ from aiogram.fsm.state import default_state
 
 from tgbot.filters.login import PasswordFilter, UsernameFilter
 from tgbot.lexicon.lexicon import LEXICON
-from tgbot.services.text_service import (get_settings_text,
-                                         get_torrent_info_text,
+from tgbot.services.repository import (get_search_settings_callback_data,
+                                       update_display_params,
+                                       update_search_params)
+from tgbot.services.text_service import (generate_search_results_summary,
                                          get_user_info_text)
-from tgbot.settings.settings import Settings
-from tgbot.states.user import (LoginFSM, SettingsFSM,
-                               TorrentFSM, StatusFSM, HelpFSM)
+from tgbot.settings.settings import DisplaySetting, SearchSetting
+from tgbot.states.user import LoginFSM, TorrentFSM, StatusFSM, HelpFSM
 from tgbot.keyboards import keyboards
 from tgbot.config import load_config
 
 from rutracker_api.exceptions import AuthorizationException
 from rutracker_api import RutrackerApi
+from tgbot.utils.utils import (handle_display_settings_change,
+                               handle_pagination_button_common,
+                               handle_search_settings_change,
+                               update_search_request,
+                               update_watch_results_page)
+
 from utils.general_logging import get_logger, setup_logger
 
 config = load_config("bot.ini")
 r = redis.Redis(**config.redis.__dict__)
 api = RutrackerApi(config.proxy.proxy)
-settings = Settings()
+search_settings = SearchSetting()
+display_settings = DisplaySetting()
+search_settings_callback_data = get_search_settings_callback_data()
 
 setup_logger()
 logger = get_logger(__name__)
@@ -32,23 +41,26 @@ logger = get_logger(__name__)
 user_router = Router()
 
 
-@user_router.message(CommandStart(), StateFilter(default_state))
-async def process_start_command(message: Message, state: FSMContext):
-    await message.answer(LEXICON['/start'])
+async def log_current_state(state):
     current_state = await state.get_state()
     logger.debug(f'{current_state=}')
+
+
+@user_router.message(CommandStart(), StateFilter(default_state))
+async def handle_start_command(message: Message, state: FSMContext):
+    await message.answer(LEXICON['/start'])
+    await log_current_state(state)
 
 
 @user_router.message(Command(commands='help'))
-async def process_help_command(message: Message, state: FSMContext):
+async def handle_help_command(message: Message, state: FSMContext):
     await message.answer(LEXICON['/help'])
     await state.set_state(HelpFSM.help)
-    current_state = await state.get_state()
-    logger.debug(f'{current_state=}')
+    await log_current_state(state)
 
 
 @user_router.message(Command(commands='status'))
-async def process_status_command(message: Message, state: FSMContext):
+async def handle_status_command(message: Message, state: FSMContext):
     if api.page_provider.authorized:
         user_info = api.status()
         text = get_user_info_text(user_info)
@@ -56,135 +68,35 @@ async def process_status_command(message: Message, state: FSMContext):
     else:
         await message.answer(get_user_info_text())
     await state.set_state(StatusFSM.status)
-    current_state = await state.get_state()
-    logger.debug(f'{current_state=}')
+    await log_current_state(state)
 
 
 @user_router.message(Command(commands='login'))
-async def process_login_command(message: Message, state: FSMContext):
+async def handle_login_command(message: Message, state: FSMContext):
     await message.answer("Пришлите логин")
     await state.set_state(LoginFSM.send_username)
-    current_state = await state.get_state()
-    logger.debug(f'{current_state=}')
+    await log_current_state(state)
 
 
 @user_router.message(Command(commands='get_torrent'))
-async def process_get_torrent_command(message: Message, state: FSMContext):
+async def handle_get_torrent_command(message: Message, state: FSMContext):
     if api.page_provider.authorized:
         await message.answer("Пришлите название искомого контента")
     else:
         await message.answer("Вы не авторизованы /login")
     await state.set_state(TorrentFSM.send_torrent_name)
-    current_state = await state.get_state()
-    logger.debug(f'{current_state=}')
-
-
-@user_router.message(Command(commands='settings'))
-async def process_settings_command(message: Message, state: FSMContext):
-    settings_text_data = {
-        'display_mode': settings.display_mode,
-        'sort': settings.sort,
-        'order': settings.order
-    }
-    await state.update_data(settings_text_data=settings_text_data)
-    await message.answer(
-        text=get_settings_text(settings_text_data),
-        reply_markup=keyboards.create_settings_main_kb())
-    await state.set_state(SettingsFSM.main)
-    current_state = await state.get_state()
-    logger.debug(f'{current_state=}')
-
-
-@user_router.callback_query(StateFilter(SettingsFSM),
-                            F.data == 'return')
-async def process_return_settings_main(callback: CallbackQuery,
-                                       state: FSMContext):
-    state_data = await state.get_data()
-    settings_text_data = state_data.get('settings_text_data')
-    await callback.message.edit_text(
-        text=get_settings_text(settings_text_data),
-        reply_markup=keyboards.create_settings_main_kb())
-    await state.set_state(SettingsFSM.main)
-
-
-@user_router.callback_query(F.data == 'display_mode',
-                            StateFilter(SettingsFSM.main))
-async def process_display_mode_press(callback: CallbackQuery,
-                                     state: FSMContext):
-    await callback.message.edit_text("Выберите способ отображения торрентов:",
-                                     reply_markup=keyboards.create_settings_display_mode_kb())
-    await state.set_state(SettingsFSM.display_mode)
-
-
-@user_router.callback_query(StateFilter(SettingsFSM.main),
-                            F.data == "sort")
-async def process_sort_main(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("Выберите способ сортировки:",
-                                     reply_markup=keyboards.create_settings_sort_type_kb())
-    await state.set_state(SettingsFSM.sort)
-
-
-@user_router.callback_query(StateFilter(SettingsFSM.main),
-                            F.data == "order")
-async def process_order_main(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("Выберите порядок сортировки:",
-                                     reply_markup=keyboards.create_settings_sort_order_kb())
-    await state.set_state(SettingsFSM.order)
-
-
-@user_router.callback_query(StateFilter(SettingsFSM.display_mode),
-                            F.data.in_(["display_list", "display_card"]))
-async def update_display_settings(callback: CallbackQuery,
-                                  state: FSMContext):
-    if callback.data == 'display_list':
-        settings.display_mode = 'list'
-    else:
-        settings.display_mode = 'card'
-    await callback.answer('Успешно')
-
-
-# Общая функция для обработки нажатий на кнопки сортировки
-async def update_sort_settings(callback: CallbackQuery, state: FSMContext, sort: str = None, order: str = None):
-    if sort:
-        settings.sort = sort
-    if order:
-        settings.order = order
-    await callback.answer('Успешно')
-
-
-# Обработчик для кнопок выбора типа сортировки
-@user_router.callback_query(StateFilter(SettingsFSM.sort), F.data.in_(['sort_seeds', 'sort_leeches', 'sort_downloads', 'sort_registered']))
-async def process_sort_type_selection(callback: CallbackQuery, state: FSMContext):
-    sort_types = {
-        'sort_seeds': 'seeds',
-        'sort_leeches': 'leeches',
-        'sort_downloads': 'downloads',
-        'sort_registered': 'registered'
-    }
-    sort_type = sort_types[callback.data]
-    await update_sort_settings(callback, state, sort=sort_type)
-
-# Обработчик для кнопок выбора порядка сортировки
-@user_router.callback_query(StateFilter(SettingsFSM.order), F.data.in_(['order_desc', 'order_asc']))
-async def process_sort_order_selection(callback: CallbackQuery, state: FSMContext):
-    orders = {
-        'order_desc': 'desc',
-        'order_asc': 'asc'
-    }
-    order = orders[callback.data]
-    await update_sort_settings(callback, state, order=order)
+    await log_current_state(state)
 
 
 @user_router.message(StateFilter(LoginFSM.send_username), UsernameFilter())
-async def process_username_sent(message: Message, state: FSMContext):
+async def handle_username_input(message: Message, state: FSMContext):
     await state.update_data(username=message.text)
     await message.answer("Пришлите пароль")
     await state.set_state(LoginFSM.send_password)
 
 
 @user_router.message(StateFilter(LoginFSM.send_password), PasswordFilter())
-async def process_password_sent(message: Message, state: FSMContext):
-    # state_data = await state.get_data()
+async def handle_password_input(message: Message, state: FSMContext):
     captcha = api.search_captcha()
     await state.update_data(captcha=captcha)
     if captcha:
@@ -201,7 +113,7 @@ async def process_password_sent(message: Message, state: FSMContext):
 
 
 @user_router.message(StateFilter(LoginFSM.send_captcha))
-async def process_captcha_sent(message: Message, state: FSMContext):
+async def handle_captcha_input(message: Message, state: FSMContext):
     captcha = message.text
     await state.update_data(captcha=captcha)
     await message.answer(
@@ -211,8 +123,8 @@ async def process_captcha_sent(message: Message, state: FSMContext):
     await state.set_state(LoginFSM.submit)
 
 
-@user_router.callback_query(StateFilter(LoginFSM.submit))
-async def process_submit_button(callback: CallbackQuery, state: FSMContext):
+@user_router.callback_query(StateFilter(LoginFSM.submit), F.data == 'submit')
+async def handle_submit_button(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     username, password = state_data.get('username'), state_data.get('password')
     captcha = state_data.get('captcha', None)
@@ -223,109 +135,196 @@ async def process_submit_button(callback: CallbackQuery, state: FSMContext):
             await callback.answer()
     except AuthorizationException:
         await callback.answer('Логин или пароль неверны')
-        await state.clear()
     finally:
-        await state.set_state(default_state)
+        await callback.message.delete()
+        await state.clear()
 
 
 @user_router.message(StateFilter(TorrentFSM.send_torrent_name))
-async def process_torrent_request(message: Message, state: FSMContext):
-    torrents_info = api.search(
-        message.text,
-        sort=settings.sort,
-        order=settings.order,
+async def handle_torrent_search_request(message: Message, state: FSMContext):
+    query = message.text
+    search_results_info = update_search_request(
+        query, search_settings, api
     )
-    await state.update_data(torrents_info=torrents_info, current_page=1)
-    torrents = torrents_info.get('result')
-    if torrents_info:
-        if settings.display_mode == 'card':
+    torrents = search_results_info['result']
+    search_params = update_search_params(search_settings)
+    display_params = update_display_params(display_settings)
+    global_current_page = search_results_info.get('page')
+    global_total_pages = search_results_info.get('total_pages')
+
+    await message.answer(
+        text=generate_search_results_summary(search_results_info),
+        reply_markup=keyboards.create_search_settings_kb(
+            search_params, display_params,
+            global_current_page, global_total_pages
+        )
+    )
+    await state.update_data(
+        search_results_info=search_results_info,
+        torrents=torrents,
+        search_params=search_params,
+        display_params=display_params,
+        query=query,
+        global_current_page=global_current_page,
+        global_total_pages=global_total_pages,
+    )
+    await state.set_state(TorrentFSM.search_settings_page)
+    await log_current_state(state)
+
+
+@user_router.callback_query(F.data == 'display_mode',
+                            StateFilter(TorrentFSM.search_settings_page))
+async def handle_display_mode_button(callback: CallbackQuery,
+                                     state: FSMContext):
+    await callback.message.edit_text(
+        "Выберите способ отображения торрентов:",
+        reply_markup=keyboards.create_display_mode_settings_kb())
+    await state.set_state(TorrentFSM.display_mode_page)
+
+
+@user_router.callback_query(StateFilter(TorrentFSM.search_settings_page),
+                            F.data == "sort")
+async def handle_sort_button(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "Выберите способ сортировки:",
+        reply_markup=keyboards.create_sort_type_settings_kb())
+    await state.set_state(TorrentFSM.sort_page)
+
+
+@user_router.callback_query(StateFilter(TorrentFSM.search_settings_page),
+                            F.data == "order")
+async def handle_order_button(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text(
+        "Выберите порядок сортировки:",
+        reply_markup=keyboards.create_sort_order_settings_kb()
+        )
+    await state.set_state(TorrentFSM.order_page)
+
+
+@user_router.callback_query(StateFilter(TorrentFSM.search_settings_page),
+                            F.data == 'watch_results')
+async def handle_watch_results_button(callback: CallbackQuery,
+                                      state: FSMContext):
+    state_data = await state.get_data()
+    torrents = state_data.get('torrents')
+    if torrents:
+        if display_settings.display_mode == 'card':
+            current_page = 1
             total_pages = len(torrents)
-            text = get_torrent_info_text(torrents[0])
-            await message.answer(
-                text=text,
-                reply_markup=keyboards.create_torrents_card_kb(
-                    'backward',
-                    f'1/{total_pages}',
-                    'forward'
-                )
-            )
-        else:
-            total_pages = torrents_info.get('total_pages')
-            await message.answer(
-                text='Результаты поиска',
-                reply_markup=keyboards.create_torrents_list_kb(
-                    torrents, torrents_info['page'], total_pages, message.text
-                )
-            )
-    else:
-        await message.answer("Не нашел, что-то не так.")
-    await state.set_state(TorrentFSM.choose_torrent)
+            await update_watch_results_page(
+                callback, state, current_page, total_pages, 'card')
+        elif display_settings.display_mode == 'list':
+            torrents_in_page = 10
+            current_page = 1
+            total_pages = int(len(torrents) / torrents_in_page)
+            await update_watch_results_page(
+                callback, state, current_page, total_pages, 'list')
+    await log_current_state(state)
 
 
-@user_router.callback_query(StateFilter(TorrentFSM.choose_torrent),
+@user_router.callback_query(StateFilter(TorrentFSM),
                             F.data == 'forward')
-async def process_forward_press(callback: CallbackQuery, state: FSMContext):
-    state_data = await state.get_data()
+async def handle_forward_button(callback: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
 
-    torrents_info = state_data.get('torrents_info')
-    torrents = torrents_info.get('result')
-    total_pages = len(torrents)
-
-    prev_page = state_data.get('current_page')
-    if prev_page >= 0 and prev_page < total_pages:
-        current_page = prev_page + 1
-        await state.update_data(current_page=current_page)
-        await callback.message.edit_text(
-            text=get_torrent_info_text(torrents[current_page - 1]),
-            reply_markup=keyboards.create_torrents_card_kb(
-                'backward',
-                f'{current_page}/{total_pages}',
-                'forward'
+    if current_state == 'TorrentFSM:watch_results_card_page':
+        await handle_pagination_button_common(
+            callback, state, 'card_current_page',
+            'card_total_pages', 'card', True
             )
-        )
-    else:
-        await callback.answer()
+    elif current_state == 'TorrentFSM:watch_results_list_page':
+        await handle_pagination_button_common(
+            callback, state, 'list_current_page',
+            'list_total_pages', 'list', True
+            )
+    elif current_state == 'TorrentFSM:search_settings_page':
+        await handle_pagination_button_common(
+            callback, state, 'global_current_page',
+            'total_pages', 'list', True
+            )
+    log_current_state(state)
 
 
-@user_router.callback_query(StateFilter(TorrentFSM.choose_torrent),
+@user_router.callback_query(StateFilter(TorrentFSM),
                             F.data == 'backward')
-async def process_backward_press(callback: CallbackQuery, state: FSMContext):
-    state_data = await state.get_data()
+async def handle_backward_button(callback: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
 
-    torrents_info = state_data.get('torrents_info')
-    torrents = torrents_info.get('result')
-    total_pages = torrents_info.get('total_pages')
-
-    prev_page = state_data.get('current_page')
-    if prev_page > 1 and prev_page <= total_pages:
-        current_page = prev_page - 1
-        await state.update_data(current_page=current_page)
-        await callback.message.edit_text(
-            text=get_torrent_info_text(torrents[current_page - 1]),
-            reply_markup=keyboards.create_torrents_card_kb(
-                'backward',
-                f'{current_page}/{total_pages}',
-                'forward'
+    if current_state == 'TorrentFSM:watch_results_card_page':
+        await handle_pagination_button_common(
+            callback, state, 'card_current_page',
+            'card_total_pages', 'card', False
             )
+    elif current_state == 'TorrentFSM:watch_results_list_page':
+        await handle_pagination_button_common(
+            callback, state, 'list_current_page',
+            'list_total_pages', 'list', False
+            )
+    elif current_state == 'TorrentFSM:search_settings_page':
+        await handle_pagination_button_common(
+            callback, state, 'global_current_page',
+            'total_pages', 'list', False
+            )
+    log_current_state(state)
+
+
+@user_router.callback_query(
+        StateFilter(TorrentFSM),
+        F.data.in_(search_settings_callback_data + ['return']))
+async def handle_return_search_settings_page(callback: CallbackQuery,
+                                             state: FSMContext):
+    is_search_settings_changed = await handle_search_settings_change(
+        callback, state, search_settings)
+    is_display_settings_changed = await handle_display_settings_change(
+        callback, state, display_settings)
+
+    state_data = await state.get_data()
+    search_results_info = state_data.get('search_results_info')
+    global_current_page = state_data.get('global_current_page')
+    global_total_pages = state_data.get('global_total_pages')
+    search_params = state_data.get('search_params')
+    display_params = state_data.get('display_params')
+
+    if is_search_settings_changed:
+        search_results_info = await update_search_request(
+            state_data['query'], search_settings, api
         )
-    else:
-        await callback.answer()
+        search_params = update_search_params(search_settings)
+        await state.update_data(
+            search_results_info=search_results_info,
+            search_params=search_params,
+            torrents=search_results_info['result']
+        )
+        await callback.answer('Успешно')
+    if is_display_settings_changed:
+        display_params = update_display_params(display_settings)
+        await state.update_data(display_params=display_params)
+        await callback.answer('Успешно')
+
+    await callback.message.edit_text(
+        text=generate_search_results_summary(search_results_info),
+        reply_markup=keyboards.create_search_settings_kb(
+            search_params, display_params,
+            global_current_page, global_total_pages
+            )
+    )
+    await state.set_state(TorrentFSM.search_settings_page)
+    log_current_state(state)
 
 
 @user_router.callback_query(StateFilter(TorrentFSM.choose_torrent),
                             F.data == 'cancel')
-async def process_cancel_press(callback: CallbackQuery, state: FSMContext):
+async def handle_cancel_button(callback: CallbackQuery, state: FSMContext):
     await callback.message.delete()
     await state.clear()
 
 
-@user_router.callback_query(StateFilter(TorrentFSM.choose_torrent),
+@user_router.callback_query(StateFilter(TorrentFSM.watch_results_card_page),
                             F.data == 'download')
-async def process_download_press(callback: CallbackQuery, state: FSMContext):
+async def handle_download_button(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
-    current_page = state_data.get('current_page')
-    torrents_info = state_data.get('torrents_info')
-    torrents = torrents_info.get('result')
+    current_page = state_data.get('card_current_page')
+    torrents = state_data.get('torrents')
     topic_id = torrents[current_page - 1].topic_id
     torrent_title = torrents[current_page - 1].title
     torrent_file = api.download(topic_id)
@@ -338,3 +337,4 @@ async def process_download_press(callback: CallbackQuery, state: FSMContext):
     else:
         await callback.message.answer("Не удалось скачать")
     await callback.answer()
+    log_current_state(state)
