@@ -13,7 +13,6 @@ LEXICON_COMMANDS: dict[str, str] = {
     '/login': 'Авторизоваться в рутрекере',
     '/status': 'Статус пользователя',
     '/get_torrent': 'Скачать торрент',
-    '/settings': 'Настройки бота',
     '/help': 'Справка'
 }
 
