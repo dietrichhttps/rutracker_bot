@@ -41,17 +41,19 @@ def create_search_settings_kb(search_params: dict,
         text=LEXICON_SEARCH_SETTINGS[display_params['display_mode']],
         callback_data='display_mode'
     )
+    backward_btn = InlineKeyboardButton(text='<<', callback_data='backward')
     current_page_btn = InlineKeyboardButton(
         text=f'{current_page}/{total_pages}',
         callback_data='select_current_page'
     )
+    forward_btn = InlineKeyboardButton(text='>>', callback_data='forward')
     whatch_results_btn = InlineKeyboardButton(
         text='Посмотреть результаты',
         callback_data='watch_results'
     )
     kb_builder.row(sort_btn, order_btn, width=2)
     kb_builder.row(category_btn, display_mode_btn, width=2)
-    kb_builder.row(current_page_btn, width=1)
+    kb_builder.row(backward_btn, current_page_btn, forward_btn, width=3)
     kb_builder.row(whatch_results_btn, width=1)
     return kb_builder.as_markup()
 
