@@ -11,8 +11,7 @@ from tgbot.lexicon.lexicon import LEXICON
 from tgbot.services.repository import (get_search_settings_callback_data,
                                        update_display_params,
                                        update_search_params)
-from tgbot.services.text_service import (generate_search_results_summary,
-                                         get_user_info_text)
+from tgbot.services.text_service import get_user_info_text
 from tgbot.settings.settings import DisplaySetting, SearchSetting
 from tgbot.states.user import LoginFSM, TorrentFSM, StatusFSM, HelpFSM
 from tgbot.keyboards import keyboards
@@ -24,6 +23,7 @@ from tgbot.utils.utils import (handle_display_settings_change,
                                handle_pagination_button_common,
                                handle_search_settings_change,
                                update_search_request,
+                               update_search_settings_page,
                                update_watch_results_page)
 
 from utils.general_logging import get_logger, setup_logger
@@ -152,12 +152,9 @@ async def handle_torrent_search_request(message: Message, state: FSMContext):
     global_current_page = search_results_info.get('page')
     global_total_pages = search_results_info.get('total_pages')
 
-    await message.answer(
-        text=generate_search_results_summary(search_results_info),
-        reply_markup=keyboards.create_search_settings_kb(
-            search_params, display_params,
-            global_current_page, global_total_pages
-        )
+    await update_search_settings_page(
+        message, search_results_info, search_params, display_params,
+        global_current_page, global_total_pages
     )
     await state.update_data(
         search_results_info=search_results_info,
@@ -222,50 +219,18 @@ async def handle_watch_results_button(callback: CallbackQuery,
     await log_current_state(state)
 
 
-@user_router.callback_query(StateFilter(TorrentFSM),
-                            F.data == 'forward')
+@user_router.callback_query(StateFilter(TorrentFSM), F.data == 'forward')
 async def handle_forward_button(callback: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-
-    if current_state == 'TorrentFSM:watch_results_card_page':
-        await handle_pagination_button_common(
-            callback, state, 'card_current_page',
-            'card_total_pages', 'card', True
-            )
-    elif current_state == 'TorrentFSM:watch_results_list_page':
-        await handle_pagination_button_common(
-            callback, state, 'list_current_page',
-            'list_total_pages', 'list', True
-            )
-    elif current_state == 'TorrentFSM:search_settings_page':
-        await handle_pagination_button_common(
-            callback, state, 'global_current_page',
-            'total_pages', 'list', True
-            )
-    log_current_state(state)
+    await handle_pagination_button_common(callback, state, is_forward=True,
+                                          search_settings=search_settings,
+                                          api=api)
 
 
-@user_router.callback_query(StateFilter(TorrentFSM),
-                            F.data == 'backward')
+@user_router.callback_query(StateFilter(TorrentFSM), F.data == 'backward')
 async def handle_backward_button(callback: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-
-    if current_state == 'TorrentFSM:watch_results_card_page':
-        await handle_pagination_button_common(
-            callback, state, 'card_current_page',
-            'card_total_pages', 'card', False
-            )
-    elif current_state == 'TorrentFSM:watch_results_list_page':
-        await handle_pagination_button_common(
-            callback, state, 'list_current_page',
-            'list_total_pages', 'list', False
-            )
-    elif current_state == 'TorrentFSM:search_settings_page':
-        await handle_pagination_button_common(
-            callback, state, 'global_current_page',
-            'total_pages', 'list', False
-            )
-    log_current_state(state)
+    await handle_pagination_button_common(callback, state, is_forward=False,
+                                          search_settings=search_settings,
+                                          api=api)
 
 
 @user_router.callback_query(
@@ -301,12 +266,9 @@ async def handle_return_search_settings_page(callback: CallbackQuery,
         await state.update_data(display_params=display_params)
         await callback.answer('Успешно')
 
-    await callback.message.edit_text(
-        text=generate_search_results_summary(search_results_info),
-        reply_markup=keyboards.create_search_settings_kb(
-            search_params, display_params,
-            global_current_page, global_total_pages
-            )
+    await update_search_settings_page(
+        callback, search_results_info, search_params,
+        display_params, global_current_page, global_total_pages
     )
     await state.set_state(TorrentFSM.search_settings_page)
     log_current_state(state)
