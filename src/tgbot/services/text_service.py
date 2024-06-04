@@ -43,7 +43,8 @@ def get_user_info_text(user_info: dict | None = None) -> str:
     return text
 
 
-def find_snippet_from_search_term(title: str, search_term: str, max_length: int) -> str:
+def find_snippet_from_search_term(title: str, search_term: str,
+                                  max_length: int) -> str:
     # Преобразуем все в нижний регистр для нечувствительного к регистру поиска
     title_lower = title.lower()
     search_term_lower = search_term.lower()
@@ -54,7 +55,8 @@ def find_snippet_from_search_term(title: str, search_term: str, max_length: int)
     # Проходим по словам и ищем наиболее подходящее слово для поиска
     for word in words:
         if search_term_lower in word:
-            # Если нашли слово, то определяем его начальную позицию в оригинальном названии
+            # Если нашли слово, то определяем его
+            # начальную позицию в оригинальном названии
             start_index = title_lower.find(word)
             end_index = start_index + max_length
             if end_index > len(title):
