@@ -20,6 +20,7 @@ from tgbot.config import load_config
 from rutracker_api.exceptions import AuthorizationException
 from rutracker_api import RutrackerApi
 from tgbot.utils.utils import (handle_display_settings_change,
+                               handle_enter_pages_menu_common,
                                handle_pagination_button_common,
                                handle_search_settings_change,
                                update_search_request,
@@ -95,7 +96,7 @@ async def handle_username_input(message: Message, state: FSMContext):
     await state.set_state(LoginFSM.send_password)
 
 
-@user_router.message(StateFilter(LoginFSM.send_password), PasswordFilter())
+@user_router.message(StateFilter(LoginFSM.send_password))
 async def handle_password_input(message: Message, state: FSMContext):
     captcha = api.search_captcha()
     await state.update_data(captcha=captcha)
@@ -231,6 +232,25 @@ async def handle_backward_button(callback: CallbackQuery, state: FSMContext):
     await handle_pagination_button_common(callback, state, is_forward=False,
                                           search_settings=search_settings,
                                           api=api)
+
+
+@user_router.callback_query(StateFilter(TorrentFSM),
+                            F.data == 'pages')
+async def handle_enter_pages_menu_button(callback: CallbackQuery,
+                                         state: FSMContext):
+    await handle_enter_pages_menu_common(callback, state)
+
+
+@user_router.callback_query(StateFilter(TorrentFSM),
+                            F.data.startswith('select_current_page'))
+async def handle_select_current_page_button(callback: CallbackQuery,
+                                            state: FSMContext):
+    selected_page = int(callback.data.split(':')[1])
+    await handle_pagination_button_common(
+        callback, state, selected_page=selected_page,
+        search_settings=search_settings,
+        api=api
+        )
 
 
 @user_router.callback_query(

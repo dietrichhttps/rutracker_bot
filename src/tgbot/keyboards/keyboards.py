@@ -42,9 +42,9 @@ def create_search_settings_kb(search_params: dict,
         callback_data='display_mode'
     )
     backward_btn = InlineKeyboardButton(text='<<', callback_data='backward')
-    current_page_btn = InlineKeyboardButton(
+    pages_btn = InlineKeyboardButton(
         text=f'{current_page}/{total_pages}',
-        callback_data='select_current_page'
+        callback_data='pages'
     )
     forward_btn = InlineKeyboardButton(text='>>', callback_data='forward')
     whatch_results_btn = InlineKeyboardButton(
@@ -53,14 +53,12 @@ def create_search_settings_kb(search_params: dict,
     )
     kb_builder.row(sort_btn, order_btn, width=2)
     kb_builder.row(category_btn, display_mode_btn, width=2)
-    kb_builder.row(backward_btn, current_page_btn, forward_btn, width=3)
+    kb_builder.row(backward_btn, pages_btn, forward_btn, width=3)
     kb_builder.row(whatch_results_btn, width=1)
     return kb_builder.as_markup()
 
 
-# Функция, генерирующая клавиатуру для страницы книги
 def create_torrent_card_navigation_kb(*buttons: str) -> InlineKeyboardMarkup:
-    # Инициализируем билдер
     kb_builder = InlineKeyboardBuilder()
     kb_builder.row(
         InlineKeyboardButton(
@@ -75,7 +73,7 @@ def create_torrent_card_navigation_kb(*buttons: str) -> InlineKeyboardMarkup:
         )
     kb_builder.row(*[InlineKeyboardButton(
         text=LEXICON[button] if button in LEXICON else button,
-        callback_data=button) for button in buttons])
+        callback_data='pages') for button in buttons])
     kb_builder.row(InlineKeyboardButton(text='Скачать',
                                         callback_data='download'))
     return kb_builder.as_markup()
@@ -181,6 +179,25 @@ def create_sort_type_settings_kb() -> InlineKeyboardMarkup:
         ),
         width=1
     )
+    return kb_builder.as_markup()
+
+
+def create_enter_pages_page_kb(pages: list[int]) -> InlineKeyboardMarkup:
+    kb_builder = InlineKeyboardBuilder()
+    page_buttons = []
+
+    if pages:
+        for page in range(1, pages + 1):
+            page_buttons.append(
+                InlineKeyboardButton(
+                    text=str(page),
+                    callback_data=f"select_current_page:{page}"
+                )
+            )
+        kb_builder.row(*page_buttons, width=5)
+        return_btn = InlineKeyboardButton(text='Назад', callback_data='return')
+        cancel_btn = InlineKeyboardButton(text='Отмена', callback_data='cancel')
+        kb_builder.row(cancel_btn, return_btn, width=2)
     return kb_builder.as_markup()
 
 

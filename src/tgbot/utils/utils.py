@@ -153,7 +153,8 @@ async def update_search_request(query: str, search_settings: SearchSetting,
 async def handle_pagination_button_common(
         callback: CallbackQuery,
         state: FSMContext,
-        is_forward: bool,
+        selected_page: int | None = None,
+        is_forward: bool | None = None,
         search_settings: SearchSetting | None = None,
         api: RutrackerApi | None = None):
     """Универсальная функция для обработки нажатия кнопок пагинации"""
@@ -179,7 +180,10 @@ async def handle_pagination_button_common(
         prev_page = state_data.get(current_page_key)
         total_pages = state_data.get(total_pages_key)
 
-        new_page = prev_page + 1 if is_forward else prev_page - 1
+        if selected_page:
+            new_page = selected_page
+        else:
+            new_page = prev_page + 1 if is_forward else prev_page - 1
         condition = 0 < new_page <= total_pages
 
         if not condition:
@@ -204,3 +208,23 @@ async def handle_pagination_button_common(
             await update_search_settings_page(callback, search_results_info,
                                               search_params, display_params,
                                               new_page, total_pages)
+
+
+async def handle_enter_pages_menu_common(callback: CallbackQuery,
+                                         state: FSMContext) -> int:
+    """Универсальная функция для обработки
+    кнопки перехода в меню выбора текущей страницы"""
+    current_state = await state.get_state()
+    state_data = await state.get_data()
+
+    if current_state == 'TorrentFSM:watch_results_card_page':
+        total_pages = state_data.get('card_total_pages')
+    elif current_state == 'TorrentFSM:watch_results_list_page':
+        total_pages = state_data.get('list_total_pages')
+    elif current_state == 'TorrentFSM:search_settings_page':
+        total_pages = state_data.get('global_total_pages')
+
+    await callback.message.edit_text(
+        text='Выберите номер страницы',
+        reply_markup=keyboards.create_enter_pages_page_kb(total_pages)
+    )
