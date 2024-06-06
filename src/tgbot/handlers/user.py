@@ -150,12 +150,13 @@ async def handle_torrent_search_request(message: Message, state: FSMContext):
     torrents = search_results_info['result']
     search_params = update_search_params(search_settings)
     display_params = update_display_params(display_settings)
-    global_current_page = search_results_info.get('page')
-    global_total_pages = search_results_info.get('total_pages')
+    search_settings_current_page = search_results_info.get('page')
+    search_settings_total_pages = search_results_info.get('total_pages')
 
     await update_search_settings_page(
         message, search_results_info, search_params, display_params,
-        global_current_page, global_total_pages
+        search_settings_current_page,
+        search_settings_total_pages
     )
     await state.update_data(
         search_results_info=search_results_info,
@@ -163,8 +164,8 @@ async def handle_torrent_search_request(message: Message, state: FSMContext):
         search_params=search_params,
         display_params=display_params,
         query=query,
-        global_current_page=global_current_page,
-        global_total_pages=global_total_pages,
+        search_settings_current_page=search_settings_current_page,
+        search_settings_total_pages=search_settings_total_pages,
     )
     await state.set_state(TorrentFSM.search_settings_page)
     await log_current_state(state)
@@ -265,8 +266,12 @@ async def handle_return_search_settings_page(callback: CallbackQuery,
 
     state_data = await state.get_data()
     search_results_info = state_data.get('search_results_info')
-    global_current_page = state_data.get('global_current_page')
-    global_total_pages = state_data.get('global_total_pages')
+    search_settings_current_page = state_data.get(
+        'search_settings_current_page'
+    )
+    search_settings_total_pages = state_data.get(
+        'search_settings_total_pages'
+    )
     search_params = state_data.get('search_params')
     display_params = state_data.get('display_params')
 
@@ -275,10 +280,12 @@ async def handle_return_search_settings_page(callback: CallbackQuery,
             state_data['query'], search_settings, api
         )
         search_params = update_search_params(search_settings)
+        search_settings_current_page = 1
         await state.update_data(
             search_results_info=search_results_info,
             search_params=search_params,
-            torrents=search_results_info['result']
+            torrents=search_results_info['result'],
+            search_settings_current_page=search_settings_current_page
         )
         await callback.answer('Успешно')
     if is_display_settings_changed:
@@ -288,7 +295,9 @@ async def handle_return_search_settings_page(callback: CallbackQuery,
 
     await update_search_settings_page(
         callback, search_results_info, search_params,
-        display_params, global_current_page, global_total_pages
+        display_params,
+        search_settings_current_page,
+        search_settings_total_pages
     )
     await state.set_state(TorrentFSM.search_settings_page)
     log_current_state(state)
@@ -301,11 +310,11 @@ async def handle_cancel_button(callback: CallbackQuery, state: FSMContext):
     await state.clear()
 
 
-@user_router.callback_query(StateFilter(TorrentFSM.watch_results_card_page),
+@user_router.callback_query(StateFilter(TorrentFSM.watch_results_page_card),
                             F.data == 'download')
 async def handle_download_button(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
-    current_page = state_data.get('card_current_page')
+    current_page = state_data.get('watch_results_current_page_card')
     torrents = state_data.get('torrents')
     topic_id = torrents[current_page - 1].topic_id
     torrent_title = torrents[current_page - 1].title

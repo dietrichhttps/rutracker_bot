@@ -3,7 +3,7 @@ from aiogram.types import (InlineKeyboardMarkup,
                            InlineKeyboardButton, BotCommand)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from tgbot.lexicon.lexicon import (LEXICON, LEXICON_COMMANDS,
+from tgbot.lexicon.lexicon import (LEXICON_COMMANDS,
                                    LEXICON_SEARCH_SETTINGS)
 from tgbot.services.text_service import find_snippet_from_search_term
 
@@ -58,46 +58,15 @@ def create_search_settings_kb(search_params: dict,
     return kb_builder.as_markup()
 
 
-def create_torrent_card_navigation_kb(*buttons: str) -> InlineKeyboardMarkup:
+def create_watch_results_kb(
+        current_page: int,
+        total_pages: int,
+        torrents: list | None = None,
+        torrents_in_page: int | None = None,
+        search_term: str | None = None,
+        is_card: bool | None = None,
+        is_list: bool | None = None) -> InlineKeyboardMarkup:
     kb_builder = InlineKeyboardBuilder()
-    kb_builder.row(
-        InlineKeyboardButton(
-            text='Отмена',
-            callback_data='cancel'
-        ),
-        InlineKeyboardButton(
-            text='Назад',
-            callback_data='return'
-            ),
-        width=2
-        )
-    kb_builder.row(*[InlineKeyboardButton(
-        text=LEXICON[button] if button in LEXICON else button,
-        callback_data='pages') for button in buttons])
-    kb_builder.row(InlineKeyboardButton(text='Скачать',
-                                        callback_data='download'))
-    return kb_builder.as_markup()
-
-
-def create_torrent_list_navigation_kb(
-        torrents: list, current_page: int,
-        torrents_in_page: int,
-        total_pages: int, search_term: str) -> InlineKeyboardMarkup:
-    kb_builder = InlineKeyboardBuilder()
-
-    torrent_buttons = []
-    start_index = (current_page - 1) * torrents_in_page
-    end_index = start_index + torrents_in_page
-    for torrent in torrents[start_index:end_index]:
-        button = InlineKeyboardButton(
-            text=find_snippet_from_search_term(
-                torrent['title'],
-                search_term,
-                max_length=50
-            ),
-            callback_data=f"torrent_{torrent['topic_id']}")
-        torrent_buttons.append(button)
-    kb_builder.row(*torrent_buttons, width=1)
 
     navigation_buttons = [
         InlineKeyboardButton(text="<<", callback_data="backward"),
@@ -105,15 +74,31 @@ def create_torrent_list_navigation_kb(
                              callback_data='pages'),
         InlineKeyboardButton(text=">>", callback_data="forward"),
     ]
-    kb_builder.row(*navigation_buttons, width=3)
-    kb_builder.row(
-        InlineKeyboardButton(
-            text='Отмена', callback_data='cancel'
-        ),
-        InlineKeyboardButton(
-            text='Назад', callback_data='return'
-        )
-    )
+
+    dwnld_btn = InlineKeyboardButton(text='Скачать', callback_data='download')
+    cancel_btn = InlineKeyboardButton(text='Отмена', callback_data='cancel')
+    return_btn = InlineKeyboardButton(text='Назад', callback_data='return')
+
+    if is_list:
+        start_index = (current_page - 1) * torrents_in_page
+        end_index = start_index + torrents_in_page
+        torrent_buttons = []
+        for torrent in torrents[start_index:end_index]:
+            button = InlineKeyboardButton(
+                text=find_snippet_from_search_term(
+                    torrent['title'],
+                    search_term,
+                    max_length=50
+                ),
+                callback_data=f"torrent_{torrent['topic_id']}")
+            torrent_buttons.append(button)
+        kb_builder.row(*torrent_buttons, width=1)
+        kb_builder.row(*navigation_buttons, width=3)
+        kb_builder.row(cancel_btn, return_btn, width=2)
+    elif is_card:
+        kb_builder.row(cancel_btn, return_btn, width=2)
+        kb_builder.row(*navigation_buttons, width=3)
+        kb_builder.row(dwnld_btn, width=1)
 
     return kb_builder.as_markup()
 
@@ -195,8 +180,10 @@ def create_enter_pages_page_kb(pages: list[int]) -> InlineKeyboardMarkup:
                 )
             )
         kb_builder.row(*page_buttons, width=5)
-        return_btn = InlineKeyboardButton(text='Назад', callback_data='return')
-        cancel_btn = InlineKeyboardButton(text='Отмена', callback_data='cancel')
+        return_btn = InlineKeyboardButton(text='Назад',
+                                          callback_data='return')
+        cancel_btn = InlineKeyboardButton(text='Отмена',
+                                          callback_data='cancel')
         kb_builder.row(cancel_btn, return_btn, width=2)
     return kb_builder.as_markup()
 

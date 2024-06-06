@@ -11,8 +11,8 @@ class LoginFSM(StatesGroup):
 class TorrentFSM(StatesGroup):
     send_torrent_name = State()
     search_settings_page = State()
-    watch_results_card_page = State()
-    watch_results_list_page = State()
+    watch_results_page_card = State()
+    watch_results_page_list = State()
     display_mode_page = State()
     order_page = State()
     sort_page = State()
