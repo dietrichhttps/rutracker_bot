@@ -1,4 +1,5 @@
 import datetime
+import math
 import re
 
 
@@ -16,6 +17,7 @@ def get_torrent_info_text(torrent_info: dict) -> str:
         f"Название: {torrent_info['title'][:50]}\n"
         f"Автор: {torrent_info['author']}\n"
         f"Категория: {torrent_info['category']}\n"
+        f"Размер: {convert_size(torrent_info['size'])}\n"
         f"Сиды: {torrent_info['seeds']}\n"
         f"Личи: {torrent_info['leeches']}\n"
         f"Скачиваний: {torrent_info['downloads']}\n"
@@ -71,3 +73,13 @@ def format_timestamp(timestamp: int) -> str:
     """Преобразует Unix timestamp в читаемый формат даты и времени"""
     date_time = datetime.datetime.fromtimestamp(timestamp)
     return date_time.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def convert_size(size_bytes: int) -> str:
+    if size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_name[i]}"
